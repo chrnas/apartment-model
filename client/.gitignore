@@ -44,4 +44,6 @@ __screenshots__/
 Thumbs.db
 
 # Graphics
+# Ignore large source models, but keep the optimized model we deploy.
 *.glb
+!public/apartment.glb

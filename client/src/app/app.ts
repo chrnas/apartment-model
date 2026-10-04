@@ -10,6 +10,9 @@ import { ApartmentViewer, RoomView } from './apartment-viewer/apartment-viewer';
 export class App {
   protected readonly title = signal('Apartment Model');
 
+  /** Optimized model served statically from /public. */
+  protected readonly modelUrl = 'apartment.glb';
+
   /**
    * Room viewpoints shown as buttons in orbit mode.
    *
