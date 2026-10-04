@@ -17,8 +17,9 @@ function isPostgresUrl(value) {
 function resolveConnectionString() {
   const env = process.env;
 
-  // Preferred, explicit names (pooled connection first).
-  const preferred = [
+  // Candidate connection strings, pooled variants first. The neon() HTTP
+  // driver needs the POOLED endpoint (host contains "-pooler").
+  const candidates = [
     env.DATABASE_URL,
     env.DATABASE_URL_DATABASE_URL,
     env.DATABASE_URL_POSTGRES_URL,
@@ -28,16 +29,18 @@ function resolveConnectionString() {
     env.DATABASE_URL_UNPOOLED,
     env.DATABASE_URL_POSTGRES_URL_NON_POOLING,
     env.POSTGRES_URL_NON_POOLING,
-  ];
-  const fromPreferred = preferred.find(isPostgresUrl);
-  if (fromPreferred) return fromPreferred;
+  ].filter(isPostgresUrl);
 
-  // Fallback: any env value that is actually a Postgres URL. This avoids
-  // accidentally picking up host/user/password-only variables.
+  // Also include any other env value that is a Postgres URL.
   for (const value of Object.values(env)) {
-    if (isPostgresUrl(value)) return value;
+    if (isPostgresUrl(value) && !candidates.includes(value)) {
+      candidates.push(value);
+    }
   }
-  return undefined;
+
+  // Strongly prefer a pooled connection string for the serverless driver.
+  const pooled = candidates.find((v) => v.includes('-pooler'));
+  return pooled ?? candidates[0];
 }
 
 // Create the client lazily so a missing/invalid URL produces a clear error

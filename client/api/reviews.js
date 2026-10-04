@@ -22,8 +22,13 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('reviews handler error:', err);
     // Return the actual message so misconfiguration (missing DATABASE_URL,
-    // missing table, etc.) is diagnosable from the client/network tab.
-    return res.status(500).json({ error: 'Internal error', detail: String(err?.message ?? err) });
+    // missing table, connection issues, etc.) is diagnosable from the client.
+    return res.status(500).json({
+      error: 'Internal error',
+      detail: String(err?.message ?? err),
+      name: err?.name,
+      code: err?.code,
+    });
   }
 }
 
