@@ -131,8 +131,9 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   private readonly direction = new THREE.Vector3();
 
   // Touch walk state
-  // Double-tap toggles auto-walk forward; drag looks around.
-  private autoWalk = false;
+  // Double-tap advances a small fixed distance forward, then stops; drag looks.
+  private stepRemaining = 0;
+  private readonly stepDistance = 1.2; // meters per double-tap
   private lookTouchId: number | null = null;
   private lookLast = { x: 0, y: 0 };
   private lastTapTime = 0;
@@ -162,9 +163,9 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
     const dy = t.clientY - this.lastTapPos.y;
     const near = Math.hypot(dx, dy) < 40;
 
-    // Double-tap toggles auto-walk forward.
+    // Double-tap advances a small step forward (accumulates if tapped again).
     if (dt < 300 && near) {
-      this.autoWalk = !this.autoWalk;
+      this.stepRemaining += this.stepDistance;
       this.lastTapTime = 0;
     } else {
       this.lastTapTime = now;
@@ -229,7 +230,7 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   protected enterTouchWalk(): void {
     this.orbitControls.enabled = false;
     this.resetWalkPosition();
-    this.autoWalk = false;
+    this.stepRemaining = 0;
     // Seed the look euler from the current camera orientation.
     this.euler.setFromQuaternion(this.camera.quaternion);
     this.attachTouchListeners();
@@ -241,7 +242,7 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
 
   /** Exit touch walk back to orbit mode. */
   protected exitTouchWalk(): void {
-    this.autoWalk = false;
+    this.stepRemaining = 0;
     this.lookTouchId = null;
     this.detachTouchListeners();
     this.zone.run(() => {
@@ -661,7 +662,7 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
     this.camera.quaternion.setFromEuler(this.euler);
   }
 
-  /** Move forward in the facing direction while auto-walk is on. */
+  /** Advance the remaining step distance forward, then stop. */
   private updateTouchMovement(delta: number): void {
     const forward = new THREE.Vector3();
     this.camera.getWorldDirection(forward);
@@ -669,8 +670,11 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
     forward.normalize();
 
     const moveStep = new THREE.Vector3();
-    if (this.autoWalk) {
-      moveStep.addScaledVector(forward, this.moveSpeed() * delta);
+    if (this.stepRemaining > 0) {
+      // Move at walk speed, but no further than the remaining step distance.
+      const advance = Math.min(this.moveSpeed() * delta, this.stepRemaining);
+      moveStep.addScaledVector(forward, advance);
+      this.stepRemaining -= advance;
     }
 
     this.playerVelocityY += this.gravity * delta;
