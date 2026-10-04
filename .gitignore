@@ -1,0 +1,10 @@
+# Large 3D source models are never committed.
+# Only the optimized client/public/apartment.glb (tracked via client/.gitignore) ships.
+*.glb
+!client/public/apartment.glb
+
+# Local Vercel link info
+.vercel/
+
+# Node
+node_modules/
