@@ -3,6 +3,11 @@
 *.glb
 !client/public/apartment.glb
 
+# Local scratch folder: drop raw/uncompressed .glb files here to compress them.
+# Everything inside is ignored except the README that documents it.
+/models-raw/*
+!/models-raw/README.md
+
 # Local Vercel link info
 .vercel/
 

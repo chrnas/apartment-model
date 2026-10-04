@@ -1,9 +1,10 @@
 import { Component, signal } from '@angular/core';
 import { ApartmentViewer, RoomView } from './apartment-viewer/apartment-viewer';
+import { Reviews } from './reviews/reviews';
 
 @Component({
   selector: 'app-root',
-  imports: [ApartmentViewer],
+  imports: [ApartmentViewer, Reviews],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
