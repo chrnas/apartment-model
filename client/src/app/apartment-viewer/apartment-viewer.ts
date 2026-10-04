@@ -72,6 +72,9 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
 
   protected readonly mode = signal<ViewMode>(this.isTouch ? 'orbit' : 'walk');
 
+  /** True while first-person walking via touch controls (no pointer lock). */
+  protected readonly touchWalkActive = signal(false);
+
   // Camera angle presets shown as buttons in orbit mode.
   protected readonly presets: readonly CameraPreset[] = [
     { id: 'top', label: 'Top' },
@@ -127,6 +130,18 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   private readonly velocity = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
 
+  // Touch walk state
+  // Double-tap toggles auto-walk forward; drag looks around.
+  private autoWalk = false;
+  private lookTouchId: number | null = null;
+  private lookLast = { x: 0, y: 0 };
+  private lastTapTime = 0;
+  private lastTapPos = { x: 0, y: 0 };
+  private readonly euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  private readonly lookSpeed = 0.004;
+  private readonly minPitch = -Math.PI / 2 + 0.1;
+  private readonly maxPitch = Math.PI / 2 - 0.1;
+
   private readonly onKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'KeyP') {
       this.logCameraView();
@@ -136,6 +151,52 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   };
   private readonly onKeyUp = (e: KeyboardEvent) => this.setMove(e.code, false);
   private readonly onResize = () => this.resize();
+
+  // --- Touch walk handlers ---
+  private readonly onTouchStart = (e: TouchEvent) => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const now = Date.now();
+    const dt = now - this.lastTapTime;
+    const dx = t.clientX - this.lastTapPos.x;
+    const dy = t.clientY - this.lastTapPos.y;
+    const near = Math.hypot(dx, dy) < 40;
+
+    // Double-tap toggles auto-walk forward.
+    if (dt < 300 && near) {
+      this.autoWalk = !this.autoWalk;
+      this.lastTapTime = 0;
+    } else {
+      this.lastTapTime = now;
+      this.lastTapPos = { x: t.clientX, y: t.clientY };
+    }
+
+    // Begin a look-drag with this touch.
+    if (this.lookTouchId === null) {
+      this.lookTouchId = t.identifier;
+      this.lookLast = { x: t.clientX, y: t.clientY };
+    }
+  };
+
+  private readonly onTouchMove = (e: TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier !== this.lookTouchId) continue;
+      const dx = t.clientX - this.lookLast.x;
+      const dy = t.clientY - this.lookLast.y;
+      this.lookLast = { x: t.clientX, y: t.clientY };
+      this.applyLook(dx, dy);
+    }
+  };
+
+  private readonly onTouchEnd = (e: TouchEvent) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === this.lookTouchId) {
+        this.lookTouchId = null;
+      }
+    }
+  };
 
   constructor(private readonly zone: NgZone) {}
 
@@ -150,6 +211,7 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('resize', this.onResize);
+    this.detachTouchListeners();
     this.walkControls?.dispose();
     this.orbitControls?.dispose();
     this.renderer?.dispose();
@@ -161,6 +223,33 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   protected enterWalk(): void {
     this.setMode('walk');
     this.walkControls.lock();
+  }
+
+  /** Enter first-person walk on touch devices (no pointer lock). */
+  protected enterTouchWalk(): void {
+    this.orbitControls.enabled = false;
+    this.resetWalkPosition();
+    this.autoWalk = false;
+    // Seed the look euler from the current camera orientation.
+    this.euler.setFromQuaternion(this.camera.quaternion);
+    this.attachTouchListeners();
+    this.zone.run(() => {
+      this.mode.set('walk');
+      this.touchWalkActive.set(true);
+    });
+  }
+
+  /** Exit touch walk back to orbit mode. */
+  protected exitTouchWalk(): void {
+    this.autoWalk = false;
+    this.lookTouchId = null;
+    this.detachTouchListeners();
+    this.zone.run(() => {
+      this.touchWalkActive.set(false);
+      this.mode.set('orbit');
+    });
+    this.orbitControls.enabled = true;
+    this.applyPreset('corner-ne', false);
   }
 
   /** Toggle between walk and orbit modes. */
@@ -445,6 +534,8 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
 
     if (this.tween) {
       this.updateTween(delta);
+    } else if (this.touchWalkActive() && this.collider) {
+      this.updateTouchMovement(delta);
     } else if (this.mode() === 'orbit') {
       this.orbitControls.update();
     } else if (this.walkControls.isLocked && this.collider) {
@@ -541,5 +632,52 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
     this.camera.aspect = parent.clientWidth / parent.clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(parent.clientWidth, parent.clientHeight);
+  }
+
+  // --- Touch walk helpers ---
+
+  private attachTouchListeners(): void {
+    const el = this.renderer.domElement;
+    el.addEventListener('touchstart', this.onTouchStart, { passive: false });
+    el.addEventListener('touchmove', this.onTouchMove, { passive: false });
+    el.addEventListener('touchend', this.onTouchEnd);
+    el.addEventListener('touchcancel', this.onTouchEnd);
+  }
+
+  private detachTouchListeners(): void {
+    const el = this.renderer.domElement;
+    el.removeEventListener('touchstart', this.onTouchStart);
+    el.removeEventListener('touchmove', this.onTouchMove);
+    el.removeEventListener('touchend', this.onTouchEnd);
+    el.removeEventListener('touchcancel', this.onTouchEnd);
+  }
+
+  /** Rotate the camera from a drag delta (pixels). */
+  private applyLook(dx: number, dy: number): void {
+    this.euler.setFromQuaternion(this.camera.quaternion);
+    this.euler.y -= dx * this.lookSpeed;
+    this.euler.x -= dy * this.lookSpeed;
+    this.euler.x = Math.max(this.minPitch, Math.min(this.maxPitch, this.euler.x));
+    this.camera.quaternion.setFromEuler(this.euler);
+  }
+
+  /** Move forward in the facing direction while auto-walk is on. */
+  private updateTouchMovement(delta: number): void {
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    const moveStep = new THREE.Vector3();
+    if (this.autoWalk) {
+      moveStep.addScaledVector(forward, this.moveSpeed() * delta);
+    }
+
+    this.playerVelocityY += this.gravity * delta;
+    moveStep.y += this.playerVelocityY * delta;
+
+    this.playerPos.add(moveStep);
+    this.resolveCollision();
+    this.camera.position.copy(this.playerPos);
   }
 }

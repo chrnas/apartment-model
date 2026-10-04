@@ -19,6 +19,15 @@
             Orbit
           </button>
         </div>
+      } @else {
+        <!-- Touch: toggle between orbit and first-person walk -->
+        <div class="mode-switch">
+          @if (!touchWalkActive()) {
+            <button type="button" class="active" (click)="enterTouchWalk()">Walk</button>
+          } @else {
+            <button type="button" (click)="exitTouchWalk()">Exit walk</button>
+          }
+        </div>
       }
 
       @if (mode() === 'orbit') {
@@ -68,6 +77,13 @@
           <li>Or switch to <strong>Orbit</strong> to view angles</li>
         </ul>
       </div>
+    </div>
+  }
+
+  <!-- Touch walk hint -->
+  @if (touchWalkActive()) {
+    <div class="touch-hint">
+      <strong>Double-tap</strong> to walk / stop · <strong>Drag</strong> to look
     </div>
   }
 </div>

@@ -198,3 +198,20 @@ kbd {
     padding-left: 0.5rem;
   }
 }
+
+/* Touch walk hint banner */
+.touch-hint {
+  position: absolute;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #e4e4e7;
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  pointer-events: none;
+}
