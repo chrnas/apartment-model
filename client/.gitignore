@@ -44,4 +44,4 @@ __screenshots__/
 Thumbs.db
 
 # Graphics
-.glb
+*.glb
