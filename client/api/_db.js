@@ -7,23 +7,37 @@ import { neon } from '@neondatabase/serverless';
 // Accept the common connection-string env var names. The Neon/Vercel
 // integration sometimes creates prefixed/suffixed names (e.g.
 // DATABASE_URL_DATABASE_URL, POSTGRES_URL), so fall back across them.
+function isPostgresUrl(value) {
+  return (
+    typeof value === 'string' &&
+    /^postgres(ql)?:\/\//.test(value)
+  );
+}
+
 function resolveConnectionString() {
   const env = process.env;
-  const candidates = [
+
+  // Preferred, explicit names (pooled connection first).
+  const preferred = [
     env.DATABASE_URL,
     env.DATABASE_URL_DATABASE_URL,
+    env.DATABASE_URL_POSTGRES_URL,
     env.POSTGRES_URL,
+    env.DATABASE_URL_POSTGRES_PRISMA_URL,
     env.POSTGRES_PRISMA_URL,
     env.DATABASE_URL_UNPOOLED,
+    env.DATABASE_URL_POSTGRES_URL_NON_POOLING,
     env.POSTGRES_URL_NON_POOLING,
   ];
-  // Also catch any *DATABASE_URL* / *POSTGRES_URL* variant the integration added.
-  for (const [key, value] of Object.entries(env)) {
-    if (value && /(DATABASE_URL|POSTGRES_URL)/.test(key)) {
-      candidates.push(value);
-    }
+  const fromPreferred = preferred.find(isPostgresUrl);
+  if (fromPreferred) return fromPreferred;
+
+  // Fallback: any env value that is actually a Postgres URL. This avoids
+  // accidentally picking up host/user/password-only variables.
+  for (const value of Object.values(env)) {
+    if (isPostgresUrl(value)) return value;
   }
-  return candidates.find((v) => typeof v === 'string' && v.length > 0);
+  return undefined;
 }
 
 // Create the client lazily so a missing/invalid URL produces a clear error
