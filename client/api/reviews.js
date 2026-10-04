@@ -5,7 +5,7 @@
 //
 // No personal data is stored: rating, comment, a random browser token, timestamps.
 
-import { sql, isUuid } from './_db.js';
+import { getSql, isUuid } from './_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
@@ -21,11 +21,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('reviews handler error:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    // Return the actual message so misconfiguration (missing DATABASE_URL,
+    // missing table, etc.) is diagnosable from the client/network tab.
+    return res.status(500).json({ error: 'Internal error', detail: String(err?.message ?? err) });
   }
 }
 
 async function listReviews(res) {
+  const sql = getSql();
   const rows = await sql`
     SELECT id, rating, comment, author_token, created_at, updated_at
     FROM reviews
@@ -56,6 +59,7 @@ async function upsertReview(req, res) {
     return res.status(400).json({ error: 'Rating must be an integer 1-5' });
   }
 
+  const sql = getSql();
   // One review per browser token: insert, or update the existing one.
   const rows = await sql`
     INSERT INTO reviews (rating, comment, author_token)

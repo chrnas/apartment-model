@@ -4,7 +4,7 @@
 //
 // Only a review whose author_token matches the caller's token is removed.
 
-import { sql, isUuid } from './_db.js';
+import { getSql, isUuid } from './_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
@@ -22,10 +22,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid author token' });
     }
 
+    const sql = getSql();
     await sql`DELETE FROM reviews WHERE author_token = ${token}`;
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('reviews-delete error:', err);
-    return res.status(500).json({ error: 'Internal error' });
+    return res.status(500).json({ error: 'Internal error', detail: String(err?.message ?? err) });
   }
 }

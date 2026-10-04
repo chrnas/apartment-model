@@ -61,7 +61,16 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
   protected readonly loadError = signal<string | null>(null);
   protected readonly locked = signal(false);
   protected readonly progress = signal(0);
-  protected readonly mode = signal<ViewMode>('walk');
+
+  /**
+   * Touch devices can't use pointer-lock + WASD walk mode, so they default to
+   * orbit and the Walk toggle is hidden.
+   */
+  protected readonly isTouch =
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+  protected readonly mode = signal<ViewMode>(this.isTouch ? 'orbit' : 'walk');
 
   // Camera angle presets shown as buttons in orbit mode.
   protected readonly presets: readonly CameraPreset[] = [
@@ -320,6 +329,13 @@ export class ApartmentViewer implements AfterViewInit, OnDestroy {
         this.measureModel(gltf.scene);
         this.buildCollider(gltf.scene);
         this.spawnPlayer();
+
+        // On touch devices we start directly in orbit mode (walk is unavailable).
+        if (this.mode() === 'orbit') {
+          this.orbitControls.enabled = true;
+          this.applyPreset('corner-ne', false);
+        }
+
         this.zone.run(() => {
           this.loading.set(false);
           this.progress.set(100);

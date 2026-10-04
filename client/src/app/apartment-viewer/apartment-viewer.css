@@ -150,3 +150,51 @@ kbd {
 .presets.rooms button:hover {
   background: rgba(66, 133, 244, 0.35);
 }
+
+/* --- Mobile / small screens --- */
+@media (max-width: 640px) {
+  .toolbar {
+    /* Span the width, clear of notches/rounded corners. */
+    left: 0.5rem;
+    right: 0.5rem;
+    top: calc(0.5rem + env(safe-area-inset-top, 0px));
+    transform: none;
+    gap: 0.4rem;
+    padding: 0.4rem;
+    /* Single scrollable row instead of a tall wrapped block. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Groups must not shrink, so the row scrolls instead of squishing. */
+  .mode-switch,
+  .presets,
+  .presets.rooms {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .toolbar button {
+    /* Larger tap targets and keep labels on one line. */
+    padding: 0.55rem 0.9rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .mode-switch {
+    padding-right: 0.4rem;
+  }
+
+  .presets.rooms {
+    padding-left: 0.5rem;
+  }
+}
