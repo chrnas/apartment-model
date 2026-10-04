@@ -1,0 +1,71 @@
+<div class="viewer">
+  <canvas #canvas class="canvas"></canvas>
+
+  <!-- Top toolbar: always visible once loaded -->
+  @if (!loading() && !loadError()) {
+    <div class="toolbar">
+      <div class="mode-switch">
+        <button
+          type="button"
+          [class.active]="mode() === 'walk'"
+          (click)="setMode('walk')">
+          Walk
+        </button>
+        <button
+          type="button"
+          [class.active]="mode() === 'orbit'"
+          (click)="setMode('orbit')">
+          Orbit
+        </button>
+      </div>
+
+      @if (mode() === 'orbit') {
+        <div class="presets">
+          @for (preset of presets; track preset.id) {
+            <button type="button" (click)="applyPreset(preset.id)">
+              {{ preset.label }}
+            </button>
+          }
+        </div>
+
+        @if (rooms().length) {
+          <div class="presets rooms">
+            @for (room of rooms(); track room.label) {
+              <button type="button" (click)="goToRoom(room)">
+                {{ room.label }}
+              </button>
+            }
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <!-- Loading / error / walk-entry overlays -->
+  @if (loading()) {
+    <div class="overlay">
+      <div class="panel">
+        <p class="status">Loading model… {{ progress() }}%</p>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <div class="overlay">
+      <div class="panel">
+        <p class="status error">{{ loadError() }}</p>
+      </div>
+    </div>
+  } @else if (mode() === 'walk' && !locked()) {
+    <div class="overlay interactive" (click)="enterWalk()">
+      <div class="panel">
+        <h2>Walk the apartment</h2>
+        <p>Click to enter</p>
+        <ul class="controls-hint">
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
+          <li>Mouse to look around</li>
+          <li><kbd>Esc</kbd> to release the cursor</li>
+          <li>Or switch to <strong>Orbit</strong> to view angles</li>
+        </ul>
+      </div>
+    </div>
+  }
+</div>
